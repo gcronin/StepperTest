@@ -1,69 +1,144 @@
-#define stepPin 7
-#define dirPin 6
-#define enablePin 5
-#define stepPulseWidthInMicroSec 2
-#define setupTimeInMicroSec 1
+#define stepPinX 14
+#define dirPinX 15
+#define enablePinX 16
+#define stepPinY 5
+#define dirPinY 6
+#define enablePinY 7
+#define xmin 17
+#define xmax 18
 
-boolean currentDirection = false;
+boolean currentDirectionX = false;
+boolean currentDirectionY = false;
 
-void setCurrentDirection(boolean dir)
+void setCurrentDirectionX(boolean dir)
 {
   if(dir == false)
   {
-      digitalWrite(dirPin, LOW);
+      digitalWrite(dirPinX, LOW);
   } else {
-      digitalWrite(dirPin, HIGH);
+      digitalWrite(dirPinX, HIGH);
   }
-  currentDirection = dir;
-  delayMicroseconds(setupTimeInMicroSec);
+  currentDirectionX = dir;
+  delayMicroseconds(1);
 }
 
-void changeDirection()
+void setCurrentDirectionY(boolean dir)
 {
-  setCurrentDirection(!currentDirection);
+  if(dir == false)
+  {
+      digitalWrite(dirPinY, LOW);
+  } else {
+      digitalWrite(dirPinY, HIGH);
+  }
+  currentDirectionY = dir;
+  delayMicroseconds(1);
 }
 
-void enableStepper(int isEnabled)
+void changeDirectionX()
+{
+  setCurrentDirectionX(!currentDirectionX);
+}
+
+void changeDirectionY()
+{
+  setCurrentDirectionY(!currentDirectionY);
+}
+
+void enableStepperX(int isEnabled)
 {
   if(isEnabled)
   {
-      digitalWrite(enablePin, LOW); // enable HIGH = stepper driver OFF
+      digitalWrite(enablePinX, LOW); // enable HIGH = stepper driver OFF
   } else {
-      digitalWrite(enablePin, HIGH); // enable HIGH = stepper driver OFF
+      digitalWrite(enablePinX, HIGH); // enable HIGH = stepper driver OFF
   }
   // wait a few microseconds for the enable to take effect 
   // (That isn't in the spec sheet I just added it for sanity.) 
   delayMicroseconds(2);
 }
 
-void takeSingleStep()
+void enableStepperY(int isEnabled)
 {
-    digitalWrite(stepPin, LOW);
-    delayMicroseconds(stepPulseWidthInMicroSec); 
-    digitalWrite(stepPin, HIGH); 
-    delayMicroseconds(stepPulseWidthInMicroSec); 
-    digitalWrite(stepPin, LOW);
+  if(isEnabled)
+  {
+      digitalWrite(enablePinY, LOW); // enable HIGH = stepper driver OFF
+  } else {
+      digitalWrite(enablePinY, HIGH); // enable HIGH = stepper driver OFF
+  }
+  // wait a few microseconds for the enable to take effect 
+  // (That isn't in the spec sheet I just added it for sanity.) 
+  delayMicroseconds(2);
+}
+
+void takeSingleStepX()
+{
+    digitalWrite(stepPinX, LOW);
+    delayMicroseconds(2); 
+    digitalWrite(stepPinX, HIGH); 
+    delayMicroseconds(1000); 
+    digitalWrite(stepPinX, LOW);
+}
+
+void takeSingleStepY()
+{
+    digitalWrite(stepPinY, LOW);
+    delayMicroseconds(2); 
+    digitalWrite(stepPinY, HIGH); 
+    delayMicroseconds(1000); 
+    digitalWrite(stepPinY, LOW);
 }
 
 void setup() 
 {
-  // We set the enable pin to be an output 
-  pinMode(enablePin, OUTPUT); // then we set it HIGH so that the board is disabled until we 
-  pinMode(stepPin, OUTPUT); 
-  pinMode(dirPin, OUTPUT);
+  // Setup X motor 
+  pinMode(enablePinX, OUTPUT); 
+  pinMode(stepPinX, OUTPUT); 
+  pinMode(dirPinX, OUTPUT);
+  
+    // Setup Y motor 
+  pinMode(enablePinY, OUTPUT); 
+  pinMode(stepPinY, OUTPUT); 
+  pinMode(dirPinY, OUTPUT);
   
   // get into a known state. 
-  enableStepper(false);
+  enableStepperX(false);
+  enableStepperY(false);
   // we set the direction pin in an arbitrary direction.
-  setCurrentDirection(false);
+  setCurrentDirectionX(false);
+  setCurrentDirectionY(false);
   
-  enableStepper(true);
+  enableStepperX(true);
+  enableStepperY(true);
 // we set the direction pin in an arbitrary direction. 
-  setCurrentDirection(true);
+  setCurrentDirectionX(true);
+  setCurrentDirectionY(true);
+  
+  pinMode(xmax, INPUT);
+  digitalWrite(xmax, HIGH);  //enable pullup resistor
+  //pinMode(xmin, INPUT);
+  //digitalWrite(xmin, HIGH);  //enable pullup resistor
+  Serial.begin(38400);
 }
 
 void loop()
 {
-   takeSingleStep();
+  int xmaxreading = digitalRead(xmax);
+  Serial.println(xmaxreading);
+  if(xmaxreading == 0) 
+  {
+    changeDirectionX();
+    changeDirectionY(); 
+    //enableStepperX(false);
+     //enableStepperY(false); 
+  }
+  else
+  {
+     //enableStepperX(true);
+     //enableStepperY(true); 
+  }
+  
    delay(1000);
+   for(int i=0; i<200; i++) {takeSingleStepY();}
+   delay(1000);
+   for(int i=0; i<200; i++) {takeSingleStepX();}
 }

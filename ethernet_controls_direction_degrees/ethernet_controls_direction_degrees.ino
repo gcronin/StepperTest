@@ -4,8 +4,8 @@
 
 const int maxLength = 50;
 const bool debug = 1;  //1 == Serial Connection ON, 0 == Serial Connection OFF
-const float degrees_per_step = 1.8;  //change this as appropriate based on microstepping... full step 1.8, half step 0.9, quarter step 0.45, eighth step 0.225, sixteenth step 0.1125
-const int stepperSpeed = 10;  // this is the delay between steps in ms
+const float degrees_per_step = 0.225;  //change this as appropriate based on microstepping... full step 1.8, half step 0.9, quarter step 0.45, eighth step 0.225, sixteenth step 0.1125
+const int stepperSpeed = 1;  // this is the delay between steps in ms
 
 /////////////////////////////////STEPPER PINS//////////////////////////////
 const int enablePinXYZ = 17;
@@ -20,6 +20,8 @@ int StepperSteps[3] = {0,0,0};  //Variables for number of steps in X, Y, Z direc
 String currentZlocation = "up";
 int SteppersEnabled = 1;
 bool currentDirectionZ = false;
+int limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
+int CumulativeSteps[3] = {0,0,0};
 
 /////////////////////////////////ETHERNET VARIABLES//////////////////////////////////
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x92, 0x58 };
@@ -33,7 +35,9 @@ void setup()
   if(debug) Serial.begin(38400);
   Ethernet.begin(mac, ip);
   server.begin();
-  setupSteppers();  
+  setupSteppers();
+  setupLimitSwitches();
+  findHomePosition();  
 }
 
 /////////////////////////////LOOP///////////////////////////////////////////
@@ -43,7 +47,7 @@ void loop()
     TurnOnOffMotors(SteppersEnabled);  
     for(int i=0; i<2; i++)   //do this for each stepper motors X and Y
     {
-      StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //200 steps per 360 degrees
+      StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //Convert degrees to steps based on "degrees_per_step"
       if(StepperDirection[i] == 1) {setCurrentDirection(true, dirPin[i]);}   //rotate counterclockwise
       else if(StepperDirection[i] == 2) {setCurrentDirection(false, dirPin[i]);}  //rotate counterclockwise
     }
@@ -51,6 +55,7 @@ void loop()
     moveXY(StepperSteps[0], StepperSteps[1]);  // moves X and Y motors along a line simultaneously
     StepperDegrees[0] = 0;
     StepperDegrees[1] = 0;
+
 }
 
 
@@ -185,6 +190,54 @@ void PenUpDown()
     for(int j=0; j<1200; j++)
             takeSingleStep(stepPin[2]);
     currentZlocation = "up";
+  }
+}
+
+////////////////////////////////FIND HOME POSITION///////////////////////////////////////
+bool findHomePosition()
+{
+  readLimitSwitches();
+  setCurrentDirection(false, dirPin[1]);  // set y-axis to move forward
+  setCurrentDirection(false, dirPin[0]);  // set x-axis to move right
+  while(limitReading[1] || limitReading[0])  //X or Y stop is NOT pressed... limit switches read 0 when pressed
+  {
+    if(limitReading[1])  //Y is NOT pressed... move Y stepper
+      takeSingleStep(stepPin[1]);
+    if(limitReading[0])  //X is NOT pressed... move X stepper
+      takeSingleStep(stepPin[0]);
+    readLimitSwitches();
+  }
+  return 1;
+}
+  
+  
+  
+////////////////////////////////LIMIT SWITCHES//////////////////////////////////////////
+void setupLimitSwitches()
+{
+  for(int i = 0; i < 3; i++)
+  {
+    pinMode(limitStop[i], INPUT);
+    digitalWrite(limitStop[i], HIGH);  //enable pullup resistor
+  }
+}
+
+void readLimitSwitches()
+{
+  for(int i = 0; i < 3; i++)
+    limitReading[i] = digitalRead(limitStop[i]);
+
+  if(debug)
+  {
+    Serial.print("Limit Switches     ");
+    Serial.print("x: ");
+    Serial.print(limitReading[0]);
+  
+    Serial.print("    y: ");
+    Serial.print(limitReading[1]);
+  
+    Serial.print("    z: ");
+    Serial.println(limitReading[2]);
   }
 }
 

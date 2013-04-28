@@ -4,8 +4,10 @@
 
 const int maxLength = 50;
 const bool debug = 1;  //1 == Serial Connection ON, 0 == Serial Connection OFF
-const float degrees_per_step = 0.225;  //change this as appropriate based on microstepping... full step 1.8, half step 0.9, quarter step 0.45, eighth step 0.225, sixteenth step 0.1125
+const float degrees_per_step = 1;  //change this as appropriate based on microstepping... full step 1.8, half step 0.9, quarter step 0.45, eighth step 0.225, sixteenth step 0.1125
 const int stepperSpeed = 1;  // this is the delay between steps in ms
+const int totalStepsXdirection = 2844;  //  1/8th stepping
+const int totalStepsYdirection = 2442;  // 1/8th stepping
 
 /////////////////////////////////STEPPER PINS//////////////////////////////
 const int enablePinXYZ = 17;
@@ -37,7 +39,10 @@ void setup()
   server.begin();
   setupSteppers();
   setupLimitSwitches();
-  findHomePosition();  
+  findHomePosition();
+  findCenterPosition();   
+  cumulativeSteps[0] = totalStepsXdirection/2; //patch is necessary because these are not getting set correctly in findCenterPosition()... 
+  cumulativeSteps[1] = totalStepsYdirection/2;
 }
 
 /////////////////////////////LOOP///////////////////////////////////////////
@@ -47,14 +52,16 @@ void loop()
     TurnOnOffMotors(SteppersEnabled);
     if(SteppersEnabled != 2) //The following should only happen if the steppers are actually enabled
     {  
-      for(int i=0; i<2; i++)   //do this for each stepper motors X and Y
-      {
-        StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //Convert degrees to steps based on "degrees_per_step"
-        if(StepperDirection[i] == 1) {setCurrentDirection(true, dirPin[i]);}   //rotate counterclockwise
-        else if(StepperDirection[i] == 2) {setCurrentDirection(false, dirPin[i]);}  //rotate counterclockwise
-      }
+      setStepsAndDirectionsXY();
       PenUpDown();
-      moveXY(StepperSteps[0], StepperSteps[1]);  // moves X and Y motors along a line simultaneously
+      if(checkMove()) 
+      {  
+         moveXY(StepperSteps[0], StepperSteps[1]);  // moves X and Y motors along a line simultaneously
+      }
+      else
+      {
+        Serial.println("Move Exceeds Boundaries");
+      }
       StepperDegrees[0] = 0;
       StepperDegrees[1] = 0;
     }
@@ -153,6 +160,16 @@ int convertdegreestosteps(int _degrees) //NOTE THIS INTRODUCES ERROR PARTICULARL
   return int(steps);
 }
 
+void setStepsAndDirectionsXY()
+{
+      for(int i=0; i<2; i++)   //do this for each stepper motors X and Y
+      {
+        StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //Convert degrees to steps based on "degrees_per_step"
+        if(StepperDirection[i] == 1) {setCurrentDirection(true, dirPin[i]);}   //move left(X) or back(Y)
+        else if(StepperDirection[i] == 2) {setCurrentDirection(false, dirPin[i]);}  //move right(X) or front(Y)
+      }
+}
+
 void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X and Y motors move at the same time
 {
   int slope[2]; 
@@ -216,6 +233,20 @@ void PenUpDown()
   }
 }
 
+///////////////////////////////CHECK MOVE IS INSIDE BOUNDARIES//////////////////////////
+bool checkMove()
+{
+      if(StepperDirection[0] == 1 && (StepperSteps[0]+cumulativeSteps[0]) > totalStepsXdirection)   //Going Left and move will exceed  
+	return 0;
+      else if(StepperDirection[0] == 2 && StepperSteps[0] > cumulativeSteps[0] )   //Going right and move will exceed  
+	return 0;
+     else if(StepperDirection[1] == 1 && (StepperSteps[1]+cumulativeSteps[1]) > totalStepsYdirection)   //Going backward and move will exceed  
+	return 0;
+      else if(StepperDirection[1] == 2 && StepperSteps[1] > cumulativeSteps[1] )   //Going forward and move will exceed  
+	return 0;
+      return 1;
+}
+
 ////////////////////////////////FIND HOME POSITION///////////////////////////////////////
 bool findHomePosition()
 {
@@ -235,6 +266,21 @@ bool findHomePosition()
   return 1;
 }
   
+///////////////////////////////////FIND CENTER POSITION////////////////////////////////////////
+bool findCenterPosition()
+{
+	int xSteps = totalStepsXdirection/2 - cumulativeSteps[0];
+	int ySteps = totalStepsYdirection /2- cumulativeSteps[1];
+	if(xSteps > 0)
+		setCurrentDirection(true, dirPin[0]);  //move to left
+	else
+		setCurrentDirection(false, dirPin[0]);  //move to right
+	if(ySteps > 0)
+		setCurrentDirection(true, dirPin[1]);  //move back
+	else
+		setCurrentDirection(false, dirPin[1]);  //move forward
+	moveXY(xSteps, ySteps);
+}
   
   
 ////////////////////////////////LIMIT SWITCHES//////////////////////////////////////////
@@ -394,11 +440,11 @@ void sendFormToClient(EthernetClient client)
   client.println("<form method=get><input type=radio name=e value=1>Enable Steppers");
   client.println("<input type=radio name=e value=2>Disable Steppers<br>");
   client.println("<h2>X-axis:</h2>");
-  client.println("X degrees:<input type=text size=3 name=r>Maximum = 32000<br>");
+  client.println("X steps::<input type=text size=3 name=r>Maximum = 2844<br>");
   client.println("<input type=radio name=x value=1 CHECKED>Left");
   client.println("<input type=radio name=x value=2>Right<br>");
   client.println("<h2>Y-axis:</h2>");
-  client.println("Y degrees:<input type=text size=3 name=g>Maximum = 32000<br>");
+  client.println("Y steps:<input type=text size=3 name=g>Maximum = 2442<br>");
   client.println("<input type=radio name=y value=1 CHECKED>Back");
   client.println("<input type=radio name=y value=2>Front<br>");
   client.println("<h2>Pen:</h2>");

@@ -21,7 +21,7 @@ String currentZlocation = "up";
 int SteppersEnabled = 1;
 bool currentDirectionZ = false;
 int limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
-int CumulativeSteps[3] = {0,0,0};
+int cumulativeSteps[3] = {0,0,0};  //Summation of the X, Y, Z steps taken
 
 /////////////////////////////////ETHERNET VARIABLES//////////////////////////////////
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x0D, 0x92, 0x58 };
@@ -44,17 +44,20 @@ void setup()
 void loop()
 {
     EthernetSendParseData();
-    TurnOnOffMotors(SteppersEnabled);  
-    for(int i=0; i<2; i++)   //do this for each stepper motors X and Y
-    {
-      StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //Convert degrees to steps based on "degrees_per_step"
-      if(StepperDirection[i] == 1) {setCurrentDirection(true, dirPin[i]);}   //rotate counterclockwise
-      else if(StepperDirection[i] == 2) {setCurrentDirection(false, dirPin[i]);}  //rotate counterclockwise
+    TurnOnOffMotors(SteppersEnabled);
+    if(SteppersEnabled != 2) //The following should only happen if the steppers are actually enabled
+    {  
+      for(int i=0; i<2; i++)   //do this for each stepper motors X and Y
+      {
+        StepperSteps[i] = convertdegreestosteps(StepperDegrees[i]);  //Convert degrees to steps based on "degrees_per_step"
+        if(StepperDirection[i] == 1) {setCurrentDirection(true, dirPin[i]);}   //rotate counterclockwise
+        else if(StepperDirection[i] == 2) {setCurrentDirection(false, dirPin[i]);}  //rotate counterclockwise
+      }
+      PenUpDown();
+      moveXY(StepperSteps[0], StepperSteps[1]);  // moves X and Y motors along a line simultaneously
+      StepperDegrees[0] = 0;
+      StepperDegrees[1] = 0;
     }
-    PenUpDown();
-    moveXY(StepperSteps[0], StepperSteps[1]);  // moves X and Y motors along a line simultaneously
-    StepperDegrees[0] = 0;
-    StepperDegrees[1] = 0;
 
 }
 
@@ -112,6 +115,25 @@ void TurnOnOffMotors(int isEnabled)
     enableStepperXYZ(true);
 }
 
+void IncrementCumulativeSteps(int pin)
+{
+  if(pin == stepPin[0])  //X axis
+  {
+    if(StepperDirection[0] == 1)  //Stepping to the left
+      ++cumulativeSteps[0];
+    else if(StepperDirection[0] == 2) //Stepping to the right
+      --cumulativeSteps[0];
+  }
+  else if(pin == stepPin[1])  //Y axis
+  {
+    if(StepperDirection[1] == 1) //Stepping to the back
+      ++cumulativeSteps[1];
+    else if(StepperDirection[1] == 2) //Stepping to the front
+      --cumulativeSteps[1];
+  }
+}
+
+
 //////////////////////////////STEP CONTROLS///////////////////////////////////////
 void takeSingleStep(int pin)
 {
@@ -121,6 +143,7 @@ void takeSingleStep(int pin)
     delayMicroseconds(1000); 
     digitalWrite(pin, LOW);
     delay(stepperSpeed);
+    IncrementCumulativeSteps(pin);
 }
 
 int convertdegreestosteps(int _degrees) //NOTE THIS INTRODUCES ERROR PARTICULARLY AT LOW DEGREES BECAUSE REMAINDER IS DROPPED WHEN CASTING FLOAT TO INT!
@@ -159,7 +182,7 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
         for(int j=0; j<slope[0]; j++)
             takeSingleStep(stepPin[1]);
         if(i < slope[1])
-            takeSingleStep(stepPin[1]);
+            takeSingleStep(stepPin[0]);
       }
     }
     else
@@ -170,7 +193,7 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
         for(int j=0; j<slope[0]; j++)
             takeSingleStep(stepPin[0]);
         if(i < slope[1])
-            takeSingleStep(stepPin[0]);
+            takeSingleStep(stepPin[1]);
       }
     }
 }
@@ -207,6 +230,8 @@ bool findHomePosition()
       takeSingleStep(stepPin[0]);
     readLimitSwitches();
   }
+  for(int i=0; i<2; i++)  //reset the counter for X and Y steppers
+    cumulativeSteps[i] = 0;
   return 1;
 }
   
@@ -363,6 +388,7 @@ void sendFormToClient(EthernetClient client)
   client.println("HTTP/1.1 200 OK");
   client.println("Content-Type: text/html");
   client.println();
+  //client.println("<META HTTP-EQUIV=REFRESH CONTENT=5 URL=>");
   client.println("<html><head></head><body>");
   client.println("<h1>Stepper Motor Control Interface</h1>");
   client.println("<form method=get><input type=radio name=e value=1>Enable Steppers");
@@ -378,6 +404,12 @@ void sendFormToClient(EthernetClient client)
   client.println("<h2>Pen:</h2>");
   client.println("<input type=radio name=z value=1 CHECKED>Pen Up");
   client.println("<input type=radio name=z value=2>Pen Down<br>");
-  client.println("<input type=submit value=submit></form></body></html>");  
+  client.println("<input type=submit value=submit></form>");
+  client.println("<h2>CurrentLocations:</h2>");
+  client.print("X-axis: ");
+  client.print(cumulativeSteps[0]);
+  client.print("   Y-axis: ");
+  client.println(cumulativeSteps[1]);
+  client.println("</body></html>");  
 }
 

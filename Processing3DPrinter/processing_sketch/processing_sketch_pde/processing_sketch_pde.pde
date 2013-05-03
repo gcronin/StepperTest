@@ -15,23 +15,43 @@ long timeLastConnected;
 
 void setup()
 {
-  myPort = new Serial(this, "COM11", 38400); // connect to Arduino
-  myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
+  //myPort = new Serial(this, "COM11", 38400); // connect to Arduino
+  //myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
   size(LayoutSize, LayoutSize);
   circleHighlight = color(204);
   circleColor = color(255);
   baseColor = color(150);
-}
+  }
 
 void draw()
 {
   background(baseColor);   // erases the display each loop
+  drawPlatform(1,1);
   checkCircles();
   drawButtons();
   ShowConnectionStatus();
   SerialTimeoutCheck();
   if(connectedFlag) sendArduino();
   displayIncomingData();
+}
+
+////////////////////////DRAW PLATFORM////////////////////////////////////////////
+void drawPlatform(int maxStepsX, int maxStepsY)
+{
+  stroke(180);
+  for(int i=0; i<15; i++)
+  {
+    line(LayoutSize/20, (5+i)*LayoutSize/20, LayoutSize - LayoutSize/20, (5+i)*LayoutSize/20);
+  }
+  for(int i=0; i<20; i++)
+  {
+    line(i*LayoutSize/20, 5*LayoutSize/20, i*LayoutSize/20, 19*LayoutSize/20);
+  }
+  int xlocation = int(map(inData[4], 0, 2844, 19*LayoutSize/20, LayoutSize/20));
+  int ylocation = int(map(inData[5], 0, 2442, 5*LayoutSize/20, 19*LayoutSize/20));
+  fill(255);
+  ellipseMode(RADIUS);
+  ellipse(xlocation, ylocation, LayoutSize/100, LayoutSize/100);
 }
 
 
@@ -127,10 +147,10 @@ void ShowConnectionStatus()
   textSize(LayoutSize/35);
   if(connectedFlag) {
     fill(0,255,0);
-    text("Connected", LayoutSize/10, 9*LayoutSize/10); }
+    text("Connected", LayoutSize/40, 39*LayoutSize/40); }
   else {
     fill(255,0,0);
-    text("Disconnected", LayoutSize/10, 9*LayoutSize/10); }
+    text("Disconnected", LayoutSize/40, 39*LayoutSize/40); }
 }
 
 ////////////////////////////SEND DATA TO ARDUINO///////////////////////////////////////
@@ -151,7 +171,22 @@ void sendArduino() //all char values need to be between 0 and 255
 
 void displayIncomingData()
 {
-  fill(255);
+  ellipseMode(RADIUS);
+  stroke(0);
+  textSize(LayoutSize/50);
+  for(int i=0; i<3; i++)
+  {
+    if(inData[i]==1) fill(0,255,0);
+    else fill(255,0,0);
+    ellipse(LayoutSize/20, (i+1)*LayoutSize/15, LayoutSize/75, LayoutSize/75);
+    fill(255);
+    if(i==0) text("X limit", LayoutSize/50, (i+1)*LayoutSize/15-LayoutSize/40);
+    else if(i==1) text("Y limit", LayoutSize/50, (i+1)*LayoutSize/15-LayoutSize/40);
+    else text("Z limit", LayoutSize/50, (i+1)*LayoutSize/15-LayoutSize/40);
+  }
+}
+  
+ /* fill(255);
   textSize(12);
   text("Xswitch:", 10, 200);
   text(inData[0], 10, 250);
@@ -165,4 +200,4 @@ void displayIncomingData()
   text(inData[4], 200, 250);
   text("Zlocation:", 250, 200);
   text(inData[5], 250, 250); 
-}
+}*/

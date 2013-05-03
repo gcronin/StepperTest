@@ -36,8 +36,6 @@ void setup()
   setupLimitSwitches();
   findHomePosition();
   findCenterPosition();   
-  cumulativeSteps[0] = totalStepsXdirection/2; //patch is necessary because these are not getting set correctly in findCenterPosition()... 
-  cumulativeSteps[1] = totalStepsYdirection/2;
   establishContact();  // send a byte to establish contact until receiver responds
 }
 
@@ -344,8 +342,9 @@ bool checkMove()
 bool findHomePosition()
 {
   readLimitSwitches();
-  setCurrentDirection(false, dirPin[1]);  // set y-axis to move forward
-  setCurrentDirection(false, dirPin[0]);  // set x-axis to move right
+  StepperDirection[0] = 2;   // set x-axis to move right
+  StepperDirection[1] = 2;   // set y-axis to move forward
+  setDirectionsXY();
   while(limitReading[1] || limitReading[0])  //X or Y stop is NOT pressed... limit switches read 0 when pressed
   {
     if(limitReading[1])  //Y is NOT pressed... move Y stepper
@@ -365,14 +364,15 @@ bool findCenterPosition()
 	int xSteps = totalStepsXdirection/2 - cumulativeSteps[0];
 	int ySteps = totalStepsYdirection /2- cumulativeSteps[1];
 	if(xSteps > 0)
-		setCurrentDirection(true, dirPin[0]);  //move to left
+		StepperDirection[0] = 1;   // set x-axis to move left
 	else
-		setCurrentDirection(false, dirPin[0]);  //move to right
+		StepperDirection[0] = 2;   // set x-axis to move right
 	if(ySteps > 0)
-		setCurrentDirection(true, dirPin[1]);  //move back
+		StepperDirection[1] = 1;   // set y-axis to move backward
 	else
-		setCurrentDirection(false, dirPin[1]);  //move forward
-	moveXY(xSteps, ySteps);
+		StepperDirection[1] = 2;   // set y-axis to move forward
+        setDirectionsXY();	
+        moveXY(xSteps, ySteps);
 }
   
   

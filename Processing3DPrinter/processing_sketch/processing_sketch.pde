@@ -9,16 +9,18 @@ color baseColor;
 boolean [] circleOver = {false, false, false, false};
 String [] ButtonLabel = {"Home", "Center", "Pen", "Steppers"};
 int[] OutData = {1,0,5,8,45,200,0};  //enable, penup/down, xByte1, xByte2, yByte1, yBtye2, center/home
-int inData[] = {0,0,0,1450,1200,0};  //limit switches X,Y,Z, cumulative steps X,Y,Z
+int inData[] = {0,0,0,1425,1200,0};  //limit switches X,Y,Z, cumulative steps X,Y,Z
 boolean connectedFlag = false;  //tells us whether we are connected to the Arduino... we should stop sending serial data if we are not
 long timeLastConnected;
 int [] previousCoordinates = {(23)*LayoutSize/44,13*LayoutSize/22};  //center position
 PGraphics lineLayer;
+int Xcoor;
+int Ycoor;
 
 void setup()
 {
-  //myPort = new Serial(this, "COM11", 38400); // connect to Arduino
-  //myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
+  myPort = new Serial(this, "COM11", 38400); // connect to Arduino
+  myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
   size(LayoutSize, LayoutSize);
   initializeLineLayer();
   circleHighlight = color(204);
@@ -64,7 +66,7 @@ void drawPlatform()
   line(2*LayoutSize/22, (13)*LayoutSize/22, 21*LayoutSize/22, (13)*LayoutSize/22);
   line((23)*LayoutSize/44, 5*LayoutSize/22, (23)*LayoutSize/44, 21*LayoutSize/22);
   int xlocation = int(map(inData[3], 0, 2850, 21*LayoutSize/22, 2*LayoutSize/22));
-  int ylocation = int(map(inData[4], 0, 2450, 5*LayoutSize/22, 21*LayoutSize/22));
+  int ylocation = int(map(inData[4], 0, 2400, 5*LayoutSize/22, 21*LayoutSize/22));
   stroke(255);
   fill(255);
   ellipseMode(RADIUS);
@@ -168,8 +170,8 @@ void mouseClicked()
    else if(overCircle(buttonXs[3], LayoutSize/8, buttonRadius) == true)  //fourth button pressed
       OutData[0] = 1-OutData[0]; // Toggle Steppers Enabled/Disabled
    else if(mouseX > 2*LayoutSize/22 && mouseX < 21*LayoutSize/22 && mouseY > 5*LayoutSize/22 && mouseY < 21*LayoutSize/22) {
-      int Xcoor = mouseX;
-      int Ycoor = mouseY;
+      Xcoor = mouseX;
+      Ycoor = mouseY;
       if(OutData[1]==0) {  //Pen is Down
         lineLayer.beginDraw();
         lineLayer.stroke(255, 0, 0);
@@ -260,13 +262,17 @@ void displayIncomingData()
   
   fill(255);
   textSize(9);
-  text("Xcoor byte1:", 10, 200);
-  text(OutData[2], 10, 250);
-  text("Xcoor byte2:", 50, 200);
-  text(OutData[3], 50, 250);
-  text("Ycoor byte1:", 100, 200);
-  text(OutData[4], 100, 250);
-  text("Ycoor byte2:", 150, 200);
-  text(OutData[5], 150, 250);
+  text("Xcoor Sent:", 10, 200);
+  text(Xcoor, 10, 225);
+  text("Xcoor Received:", 10, 250);
+  text(inData[1], 10, 275);
+  text("Current Xcoor:", 10, 300);
+  text(inData[3], 10, 325);
+  text("Ycoor Sent:", 10, 375);
+  text(Ycoor, 10, 400);
+  text("Ycoor Received:", 10, 425);
+  text(inData[2], 10, 450);
+  text("Current Ycoor:", 10, 475);
+  text(inData[4], 10, 500);
 
 }

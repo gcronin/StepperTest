@@ -15,15 +15,14 @@ const int limitStop[3] = {19, 18, 14};  //Arduino Pins for Limit Switches
 
 /////////////////////////////////STEPPER VARIABLES//////////////////////////////
 int StepperDirection[3] = {0,0,0};   //Variables for X,Y,Z directions
-int StepperSteps[3] = {0,0,0};  //Variables for number of steps in X, Y, Z directions
 String currentZlocation = "down";
 bool SteppersEnabled = true;
 bool currentDirectionZ = false;
 int limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
 int cumulativeSteps[3] = {0,0,0};  //Summation of the X, Y, Z steps taken
 const int stepperSpeed = 1;  // this is the delay between steps in ms
-const int totalStepsXdirection = 2844;  //  1/8th stepping
-const int totalStepsYdirection = 2442;  // 1/8th stepping
+const int totalStepsXdirection = 2850;  //  1/8th stepping
+const int totalStepsYdirection = 2400;  // 1/8th stepping
 
 
 
@@ -32,11 +31,12 @@ void setup()
   pinMode(LEDpin, OUTPUT);
   digitalWrite(LEDpin, LOW);
   Serial.begin(38400);  //setup communications to Processing
+  establishContact();  // send a byte to establish contact until receiver responds
   setupSteppers();
   setupLimitSwitches();
   findHomePosition();
   findCenterPosition();   
-  establishContact();  // send a byte to establish contact until receiver responds
+  
 }
 
 void loop()
@@ -58,15 +58,42 @@ void completeStepperAction()
    else //Disable Steppers
      enableStepperXYZ(false);
    
-   PenUpDown(data[1]);
+   if(data[0]) {
+     PenUpDown(data[1]);
    
-   if(data[6] == 2) //Go to Home
-     findHomePosition();
-   else if(data[6]) //Go to Center
-     findCenterPosition();
+     if(data[6]!= 2 && !data[6]) {
+       int xPosition = data[2] + (data[3]<<8);
+       int yPosition = data[4] + (data[5]<<8);
+       moveToPosition(xPosition, yPosition);
+     }
+     
+     if(data[6] == 2) //Go to Home
+       findHomePosition();
+     else if(data[6]) //Go to Center
+       findCenterPosition();
+   }
  }
 }
 
+//////////////////////////////////CALCULATE and MOVE to NEW POSITION//////////////////////////////
+void moveToPosition(int xPosition, int yPosition)
+{
+  int xSteps = xPosition - cumulativeSteps[0];
+  int ySteps = yPosition - cumulativeSteps[1];
+  if(xSteps > 0)
+    StepperDirection[0] = 1;   // set x-axis to move left
+  else
+    StepperDirection[0] = 2;   // set x-axis to move right
+  if(ySteps > 0)
+    StepperDirection[1] = 1;   // set y-axis to move backward
+  else
+    StepperDirection[1] = 2;   // set y-axis to move forward
+  setDirectionsXY();
+  if(checkMove(abs(xSteps), abs(ySteps)))  // is move valid?
+    moveXY(abs(xSteps), abs(ySteps));
+  
+  
+}
   
   
 ///////////////////////////////////Establish Initial Serial Connection/////////////////////////////  
@@ -125,7 +152,7 @@ void getInputString()
             data[4] = Serial.read();
             mode = 7;   
         }
-        else if(mode == 7) //YBYTE1
+        else if(mode == 7) //YBYTE2
         {
           data[5] = Serial.read();
           mode = 8;
@@ -156,11 +183,17 @@ void getInputString()
 void sendOutputString()
 {
   String outputString = "";
-  for(int i=0; i<3; i++)
+  for(int i=0; i<1; i++)
   {
     outputString += limitReading[i];  //add the next data point
     outputString += ",";  //add a comma
   }
+  int Xcoor = data[2] + (data[3]<<8);
+  outputString += Xcoor;
+  outputString += ",";  //add a comma
+  int Ycoor = data[4] + (data[5]<<8);
+  outputString += Ycoor;
+  outputString += ",";  //add a comma
   for(int i=0; i<MAX_ARGS; i++)
   {
     outputString += cumulativeSteps[i];  //add the next data point
@@ -307,7 +340,7 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
 
 void PenUpDown(int penlocation)
 {
-  int zsteps = 1200;
+  int zsteps = 5000;
   if(penlocation == 0 && currentZlocation == "up")  //Pen DOWN, currently up
   {
     changeDirectionZ();
@@ -325,15 +358,15 @@ void PenUpDown(int penlocation)
 }
 
 ///////////////////////////////CHECK MOVE IS INSIDE BOUNDARIES//////////////////////////
-bool checkMove()
+bool checkMove(int _Xsteps, int _Ysteps)
 {
-      if(StepperDirection[0] == 1 && (StepperSteps[0]+cumulativeSteps[0]) > totalStepsXdirection)   //Going Left and move will exceed  
+      if(StepperDirection[0] == 1 && (_Xsteps+cumulativeSteps[0]) > totalStepsXdirection)   //Going Left and move will exceed  
 	return 0;
-      else if(StepperDirection[0] == 2 && StepperSteps[0] > cumulativeSteps[0] )   //Going right and move will exceed  
+      else if(StepperDirection[0] == 2 && _Xsteps > cumulativeSteps[0] )   //Going right and move will exceed  
 	return 0;
-     else if(StepperDirection[1] == 1 && (StepperSteps[1]+cumulativeSteps[1]) > totalStepsYdirection)   //Going backward and move will exceed  
+     else if(StepperDirection[1] == 1 && (_Ysteps+cumulativeSteps[1]) > totalStepsYdirection)   //Going backward and move will exceed  
 	return 0;
-      else if(StepperDirection[1] == 2 && StepperSteps[1] > cumulativeSteps[1] )   //Going forward and move will exceed  
+      else if(StepperDirection[1] == 2 && _Ysteps > cumulativeSteps[1] )   //Going forward and move will exceed  
 	return 0;
       return 1;
 }
@@ -372,7 +405,7 @@ bool findCenterPosition()
 	else
 		StepperDirection[1] = 2;   // set y-axis to move forward
         setDirectionsXY();	
-        moveXY(xSteps, ySteps);
+        moveXY(abs(xSteps), abs(ySteps));
 }
   
   

@@ -41,10 +41,10 @@ void setup()
 
 void loop()
 {
-  sendOutputString();
   getInputString();
   readLimitSwitches();
   completeStepperAction();
+  sendOutputString();
   delay(10);
 }
   
@@ -58,7 +58,7 @@ void completeStepperAction()
    else //Disable Steppers
      enableStepperXYZ(false);
    
-   if(data[0]) {
+   if(data[0]) {  //do the following only if steppers are enabled
      PenUpDown(data[1]);
    
      if(data[6]!= 2 && !data[6]) {
@@ -194,7 +194,7 @@ void sendOutputString()
   int Ycoor = data[4] + (data[5]<<8);
   outputString += Ycoor;
   outputString += ",";  //add a comma
-  for(int i=0; i<MAX_ARGS; i++)
+  for(int i=0; i<3; i++)
   {
     outputString += cumulativeSteps[i];  //add the next data point
     outputString += ",";  //add a comma
@@ -318,9 +318,9 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
     {
       for(int i=0; i<_Ysteps; i++) 
       {
-        takeSingleStep(stepPin[0]); 
+        takeSingleStep(stepPin[1]); 
         for(int j=0; j<slope[0]; j++)
-            takeSingleStep(stepPin[1]);
+            takeSingleStep(stepPin[0]);
         if(i < slope[1])
             takeSingleStep(stepPin[0]);
       }
@@ -329,9 +329,9 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
     {
       for(int i=0; i<_Xsteps; i++) 
       {
-        takeSingleStep(stepPin[1]); 
+        takeSingleStep(stepPin[0]); 
         for(int j=0; j<slope[0]; j++)
-            takeSingleStep(stepPin[0]);
+            takeSingleStep(stepPin[1]);
         if(i < slope[1])
             takeSingleStep(stepPin[1]);
       }
@@ -357,7 +357,7 @@ void PenUpDown(int penlocation)
   }
 }
 
-///////////////////////////////CHECK MOVE IS INSIDE BOUNDARIES//////////////////////////
+///////////////////////////////CHECK MOVE IS IN  SIDE BOUNDARIES//////////////////////////
 bool checkMove(int _Xsteps, int _Ysteps)
 {
       if(StepperDirection[0] == 1 && (_Xsteps+cumulativeSteps[0]) > totalStepsXdirection)   //Going Left and move will exceed  

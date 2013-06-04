@@ -10,7 +10,9 @@ boolean [] circleOver = {false, false, false, false, false};
 String [] ButtonLabel = {"Home", "Center", "PenUp", "PenDown", "Steppers"};
 int[] OutData = {1,0,5,8,45,200,0};  //enable, penup/down, xByte1, xByte2, yByte1, yBtye2, center/home
 int inData[] = {0,0,0,1425,1200,0};  //limit switches X,Y,Z, cumulative steps X,Y,Z
+int limitSwitches[] = {0,0,0};
 boolean connectedFlag = false;  //tells us whether we are connected to the Arduino... we should stop sending serial data if we are not
+boolean penDown = false;
 String jog_vs_moveto = "moveto"; //jog the pen up/down or moved fixed amount up/down
 long timeLastConnected;
 int [] previousCoordinates = {(23)*LayoutSize/44,13*LayoutSize/22};  //center position
@@ -42,7 +44,6 @@ void draw()
   if(connectedFlag) sendArduino();
   displayIncomingData();
   drawLines();
-  //if(jog_vs_moveto == "jog") OutData[1] = 0;
 }
 
 ////////////////////////DRAW PLATFORM////////////////////////////////////////////
@@ -194,10 +195,14 @@ boolean overCircle(int x, int y, int radius)
 /////////////////////////////DEAL WITH MOUTH PRESSED FOR JOGGING///////////////////////////////
 void checkJogPressed()
 {
-  if(mousePressed && (overCircle(buttonXs[2], LayoutSize/8, buttonRadius) == true) && jog_vs_moveto == "jog") //Pen Up button pressed in jog mode
+  if(mousePressed && (overCircle(buttonXs[2], LayoutSize/8, buttonRadius) == true) && jog_vs_moveto == "jog"){ //Pen Up button pressed in jog mode
     OutData[1] = 1;
-  else if(mousePressed && (overCircle(buttonXs[3], LayoutSize/8, buttonRadius) == true) && jog_vs_moveto == "jog") //Pen Down button pressed in jog mode
+    penDown = false;
+  }
+  else if(mousePressed && (overCircle(buttonXs[3], LayoutSize/8, buttonRadius) == true) && jog_vs_moveto == "jog") {//Pen Down button pressed in jog mode
     OutData[1] = 2;
+    penDown = true;
+  }
 }
 
 /////////////////////////////DEAL WITH MOUSE CLICKS/////////////////////////////////////////////
@@ -220,16 +225,18 @@ void mouseClicked()
       OutData[4] = 1200&0xFF;
       OutData[5] = (1200>>8)&0xFF;
    }
-   else if(overCircle(buttonXs[2], LayoutSize/8, buttonRadius) == true && jog_vs_moveto == "moveto")  //third button pressed
+   else if(overCircle(buttonXs[2], LayoutSize/8, buttonRadius) == true && jog_vs_moveto == "moveto") { //third button pressed
       OutData[1] = 3; // Pen Up
-   else if(overCircle(buttonXs[3], LayoutSize/8, buttonRadius) == true && jog_vs_moveto == "moveto")  //fourth button pressed
+      penDown = false; }
+   else if(overCircle(buttonXs[3], LayoutSize/8, buttonRadius) == true && jog_vs_moveto == "moveto") { //fourth button pressed
       OutData[1] = 4; // Pen Down
+      penDown = true; }
    else if(overCircle(buttonXs[4], LayoutSize/8, buttonRadius) == true)  //fifth button pressed
       OutData[0] = 1-OutData[0]; // Toggle Steppers Enabled/Disabled
    else if(mouseX > 2*LayoutSize/22 && mouseX < 21*LayoutSize/22 && mouseY > 5*LayoutSize/22 && mouseY < 21*LayoutSize/22) {
       Xcoor = mouseX;
       Ycoor = mouseY;
-      if(OutData[1]==4) {  //Pen is Down
+      if(penDown == true) {  //Pen is Down
         lineLayer.beginDraw();
         lineLayer.stroke(255, 0, 0);
         lineLayer.line(previousCoordinates[0],previousCoordinates[1], Xcoor, Ycoor);
@@ -262,6 +269,12 @@ void serialEvent(Serial myPort)  // this executes whenever \n character is recei
   // split the string at the commas
   // and convert the sections into integers:
   inData = int(split(myString, ','));
+  byte mask = 1;
+  limitSwitches[0] = inData[0] & mask;
+  mask = 2;
+  limitSwitches[1] = (inData[0] & mask)>>1;
+  mask = 4;
+  limitSwitches[2] = (inData[0] & mask)>>2;
   connectedFlag = true;
   timeLastConnected = millis();
 }
@@ -311,7 +324,7 @@ void displayIncomingData()
   textAlign(LEFT);
   for(int i=0; i<3; i++)
   {
-    if(inData[i]==1) fill(0,255,0);
+    if(limitSwitches[i]==1) fill(0,255,0);
     else fill(255,0,0);
     ellipse(LayoutSize/20, (i+1)*LayoutSize/15, LayoutSize/75, LayoutSize/75);
     fill(255);
@@ -335,5 +348,7 @@ void displayIncomingData()
   text(inData[2], 10, 450);
   text("Current Ycoor:", 10, 475);
   text(inData[4], 10, 500);
+  text("Pen Location:", 10, 525);
+  text(inData[5], 10, 550);
 
 }

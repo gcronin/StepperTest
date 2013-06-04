@@ -17,9 +17,9 @@ const int limitStop[3] = {19, 18, 14};  //Arduino Pins for Limit Switches
 int StepperDirection[3] = {0,0,0};   //Variables for X,Y,Z directions
 String currentZlocation = "down";
 bool SteppersEnabled = true;
-bool currentDirectionZ = false;
-int limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
-int cumulativeSteps[3] = {0,0,0};  //Summation of the X, Y, Z steps taken
+bool currentDirectionZ = true;
+byte limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
+long cumulativeSteps[3] = {0,0,0};  //Summation of the X, Y, Z steps taken
 const int stepperSpeed = 1;  // this is the delay between steps in ms
 const int totalStepsXdirection = 2850;  //  1/8th stepping
 const int totalStepsYdirection = 2400;  // 1/8th stepping
@@ -43,6 +43,7 @@ void loop()
 {
   getInputString();
   readLimitSwitches();
+  resetZAxisZeroPosition();
   completeStepperAction();
   sendOutputString();
   delay(10);
@@ -183,11 +184,9 @@ void getInputString()
 void sendOutputString()
 {
   String outputString = "";
-  for(int i=0; i<1; i++)
-  {
-    outputString += limitReading[i];  //add the next data point
-    outputString += ",";  //add a comma
-  }
+  byte limitswitches = limitReading[0] + (limitReading[1]<<1) + (limitReading[2]<<2);
+  outputString += limitswitches;
+  outputString += ",";  //add a comma
   int Xcoor = data[2] + (data[3]<<8);
   outputString += Xcoor;
   outputString += ",";  //add a comma
@@ -264,9 +263,9 @@ void IncrementCumulativeSteps(int pin)
   }
   else if(pin == stepPin[2]) //Z axis
   {
-    if(currentZlocation == "up")
+    if(currentDirectionZ)  //Stepping up
       ++cumulativeSteps[2];
-    else if(currentZlocation == "down") //Stepping to the front
+    else  //Stepping down
       --cumulativeSteps[2];
   }
 }
@@ -282,6 +281,22 @@ void takeSingleStep(int pin)
     digitalWrite(pin, LOW);
     delay(stepperSpeed);
     IncrementCumulativeSteps(pin);
+}
+
+void takeSingleStepFast(int pin)
+{
+    digitalWrite(pin, LOW);
+    delayMicroseconds(2); 
+    digitalWrite(pin, HIGH); 
+    delayMicroseconds(1000); 
+    digitalWrite(pin, LOW);
+    IncrementCumulativeSteps(pin);
+}
+
+void takeXSteps(int pin, int num_steps)
+{
+  for(int i=0; i<num_steps; i++)
+    takeSingleStep(pin);
 }
 
 void setDirectionsXY()
@@ -340,20 +355,40 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
 
 void PenUpDown(int penlocation)
 {
-  int zsteps = 5000;
-  if(penlocation == 0 && currentZlocation == "up")  //Pen DOWN, currently up
+  long zsteps = 70000;
+  if(penlocation == 4 && currentZlocation == "up")  //Pen DOWN, currently up
   {
-    changeDirectionZ();
-    for(int j=0; j<zsteps; j++)
-            takeSingleStep(stepPin[2]);
+    if(currentDirectionZ)
+      changeDirectionZ();
+    for(long j=0; j<zsteps; j++)
+            takeSingleStepFast(stepPin[2]);
     currentZlocation = "down";
   }
-  else if(penlocation == 1 && currentZlocation == "down")  //Pen UP, currently down
+  else if(penlocation == 3 && currentZlocation == "down")  //Pen UP, currently down
+  {
+    if(!currentDirectionZ)
+      changeDirectionZ();
+    for(long j=0; j<zsteps; j++)
+            takeSingleStepFast(stepPin[2]);
+    currentZlocation = "up";
+  }
+  else if(penlocation == 1 && !currentDirectionZ)  
   {
     changeDirectionZ();
-    for(int j=0; j<zsteps; j++)
-            takeSingleStep(stepPin[2]);
-    currentZlocation = "up";
+    takeXSteps(stepPin[2], 10);
+  }
+  else if(penlocation == 1)
+  {
+    takeXSteps(stepPin[2], 10);
+  }
+  else if(penlocation == 2 && currentDirectionZ) 
+  { 
+    changeDirectionZ();
+    takeXSteps(stepPin[2], 10);
+  }
+  else if(penlocation == 2)
+  {
+    takeXSteps(stepPin[2], 10);
   }
 }
 
@@ -426,6 +461,11 @@ void readLimitSwitches()
 
 }
 
+void resetZAxisZeroPosition()
+{
+  if(limitReading[2] == 0)
+    cumulativeSteps[2] = 0;  //reset Z-axis counter
+}
 ////////////////////////////////SETUP STEPPERS///////////////////////////////////////////
 void setupSteppers()
 {

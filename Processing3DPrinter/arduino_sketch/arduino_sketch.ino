@@ -7,6 +7,11 @@ int data[MAX_ARGS] = {0,0,0,0,0,0,0};  //enable, penup, xbyte1, xbyte2, ybyte1, 
 int mode = 0;
 boolean errorFlag = false; // raised when checksum error occurs
 
+///////////////////////////FROSTRUDER Relay Setup/////////////////////////////////
+const int reliefValve = 4;
+const int pressureValve = 10;
+
+
 /////////////////////////////////STEPPER PINS//////////////////////////////
 const int enablePinXYZ = 17;
 const int stepPin[3] = {3, 15, 9};  //Arduino Pins for Steppers Steps
@@ -32,6 +37,7 @@ void setup()
   digitalWrite(LEDpin, LOW);
   Serial.begin(38400);  //setup communications to Processing
   establishContact();  // send a byte to establish contact until receiver responds
+  setupFrostruder();
   setupSteppers();
   setupLimitSwitches();
   findHomePosition();
@@ -47,6 +53,29 @@ void loop()
   completeStepperAction();
   sendOutputString();
   delay(10);
+}
+
+//////////////////////////FROSTRUDER FUNCTIONS///////////////////////////////////////////////
+void setupFrostruder()
+{
+  pinMode(reliefValve, OUTPUT);
+  digitalWrite(reliefValve, LOW);
+  pinMode(pressureValve, OUTPUT);
+  digitalWrite(pressureValve, LOW);
+}
+
+void FrostingTurnOn()
+{
+  digitalWrite(pressureValve, HIGH);
+  digitalWrite(reliefValve, LOW);
+} 
+  
+void FrostingTurnOff()
+{
+  digitalWrite(pressureValve, LOW);
+  digitalWrite(reliefValve, HIGH);
+  delay(500);
+  digitalWrite(reliefValve, LOW);
 }
   
 ////////////////////////////MOVE, LIFT, ENABLE////////////////////////////////////////////////
@@ -90,9 +119,13 @@ void moveToPosition(int xPosition, int yPosition)
   else
     StepperDirection[1] = 2;   // set y-axis to move forward
   setDirectionsXY();
-  if(checkMove(abs(xSteps), abs(ySteps)))  // is move valid?
+  if(checkMove(abs(xSteps), abs(ySteps))) { // is move valid?
+    if(abs(xSteps) > 10 || abs(ySteps) > 10) 
+      FrostingTurnOn();
     moveXY(abs(xSteps), abs(ySteps));
-  
+    if(abs(xSteps) > 10 || abs(ySteps) > 10) 
+      FrostingTurnOff();
+  }
   
 }
   

@@ -10,7 +10,7 @@ boolean errorFlag = false; // raised when checksum error occurs
 ///////////////////////////FROSTRUDER Relay Setup/////////////////////////////////
 const int reliefValve = 4;
 const int pressureValve = 10;
-
+bool penDownFlag = false;
 
 /////////////////////////////////STEPPER PINS//////////////////////////////
 const int enablePinXYZ = 17;
@@ -50,6 +50,7 @@ void loop()
   getInputString();
   readLimitSwitches();
   resetZAxisZeroPosition();
+  FrostingCheckPenPosition();
   completeStepperAction();
   sendOutputString();
   delay(10);
@@ -77,7 +78,15 @@ void FrostingTurnOff()
   delay(500);
   digitalWrite(reliefValve, LOW);
 }
-  
+
+void FrostingCheckPenPosition()
+{
+  if(data[1] == 2 || data[1] == 4) {
+      penDownFlag = true;  }
+  else if(data[1] == 1 || data[1] == 3) {
+      penDownFlag = false;  }
+}
+
 ////////////////////////////MOVE, LIFT, ENABLE////////////////////////////////////////////////
 void completeStepperAction()
 {
@@ -120,11 +129,13 @@ void moveToPosition(int xPosition, int yPosition)
     StepperDirection[1] = 2;   // set y-axis to move forward
   setDirectionsXY();
   if(checkMove(abs(xSteps), abs(ySteps))) { // is move valid?
-    if(abs(xSteps) > 10 || abs(ySteps) > 10) 
-      FrostingTurnOn();
+    if(abs(xSteps) > 10 || abs(ySteps) > 10) {
+      if(penDownFlag) {
+        FrostingTurnOn(); }}
     moveXY(abs(xSteps), abs(ySteps));
-    if(abs(xSteps) > 10 || abs(ySteps) > 10) 
-      FrostingTurnOff();
+    if(abs(xSteps) > 10 || abs(ySteps) > 10) {
+      if(penDownFlag) {
+        FrostingTurnOff(); }}
   }
   
 }

@@ -354,47 +354,63 @@ void setDirectionsXY()
 
 void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X and Y motors move at the same time
 {
-  int slope[2]; 
-  if(_Xsteps > _Ysteps)
-   {
-    slope[0] = _Xsteps/_Ysteps;
-    slope[1] = _Xsteps%_Ysteps;
-   }
-   else
-   {
-    slope[0] = _Ysteps/_Xsteps;
-    slope[1] = _Ysteps%_Xsteps;
-   }
-   if(_Xsteps == 0) 
-    {
-      for(int i=0; i<_Ysteps; i++)  {takeSingleStep(stepPin[1]); }
-    }
-    else if(_Ysteps == 0)
-    {
-      for(int i=0; i<_Xsteps; i++)  {takeSingleStep(stepPin[0]); }
-    }
-    else if(_Xsteps > _Ysteps)
-    {
-      for(int i=0; i<_Ysteps; i++) 
-      {
-        takeSingleStep(stepPin[1]); 
-        for(int j=0; j<slope[0]; j++)
-            takeSingleStep(stepPin[0]);
-        if(i < slope[1])
-            takeSingleStep(stepPin[0]);
+    int slope[2], iterationsPerLeftoverStep1, iterationsPerLeftoverStep2, leftoverSteps1, leftoverSteps2;
+    
+    //VERTICAL LINE
+    if(_Xsteps == 0) 
+        for(int i=0; i<_Ysteps; i++)  {takeSingleStep(stepPin[1]); }
+    
+    //HORIZONAL LINE
+    else if(_Ysteps == 0)  
+        for(int i=0; i<_Xsteps; i++)  {takeSingleStep(stepPin[0]); }
+    
+    // GENERIC LINE
+    else {
+      
+      /////////////////////////////////////////CALCULATIONS FOR INTERWEAVE////////////////////////////////////////////////////////
+      slope[0] = _Xsteps >= _Ysteps ? _Xsteps/_Ysteps : _Ysteps/_Xsteps;
+      slope[1] = _Xsteps >= _Ysteps ? _Xsteps%_Ysteps : _Ysteps%_Xsteps;
+      if(slope[1] !=0) {
+        iterationsPerLeftoverStep1 = _Xsteps >= _Ysteps ? (_Ysteps/slope[1]) + 1 : (_Xsteps/slope[1]) + 1;
+        leftoverSteps1 = _Xsteps >= _Ysteps ? slope[1] - _Ysteps/iterationsPerLeftoverStep1 : slope[1] - _Xsteps/iterationsPerLeftoverStep1;
+        if(leftoverSteps1 != 0) {
+          iterationsPerLeftoverStep2 = _Xsteps >= _Ysteps ? (_Ysteps/leftoverSteps1) + 1 : (_Xsteps/leftoverSteps1) + 1;
+          leftoverSteps2 = _Xsteps >= _Ysteps ? leftoverSteps1 - _Ysteps/iterationsPerLeftoverStep2 : leftoverSteps1 - _Xsteps/iterationsPerLeftoverStep2;
+        }
+        else
+          iterationsPerLeftoverStep2, leftoverSteps2 = 0;
       }
-    }
-    else
-    {
-      for(int i=0; i<_Xsteps; i++) 
-      {
-        takeSingleStep(stepPin[0]); 
-        for(int j=0; j<slope[0]; j++)
-            takeSingleStep(stepPin[1]);
-        if(i < slope[1])
-            takeSingleStep(stepPin[1]);
+      else
+         iterationsPerLeftoverStep1, iterationsPerLeftoverStep2, leftoverSteps1, leftoverSteps2 = 0;
+      
+      ////////////////////////////////SIMPLER INTERWEAVE TACKS-ON EXTRA STEPS AT BEGINNING/////////////////////////////////
+      if(leftoverSteps2 > (min(_Ysteps, _Xsteps) - slope[1]) ) {  
+          
+         for(int i=0; i<min(_Ysteps, _Xsteps); i++) //number of iterations
+         {
+           takeSingleStep(_Xsteps >= _Ysteps ? stepPin[1] : stepPin[0] ); 
+           for(int j=0; j<slope[0]; j++)
+               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+           if(i < slope[1])
+               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+          }
       }
-    }
+      ///////////////////////////////////////MORE COMPLEX INTERWEAVE ADDS EXTRA STEPS THROUGHOUT//////////////////////////////
+      else  
+      {
+        for(int i=0; i<min(_Ysteps, _Xsteps); i++) { //number of iterations
+          takeSingleStep(_Xsteps >= _Ysteps ? stepPin[1] : stepPin[0]); 
+          for(int j=0; j<slope[0]; j++)
+              takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+          if(i%iterationsPerLeftoverStep1 == 0 && (min(_Ysteps, _Xsteps) - i) > iterationsPerLeftoverStep1 )
+              takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+          if(i%iterationsPerLeftoverStep2 == 0 && (min(_Ysteps, _Xsteps) - i) > iterationsPerLeftoverStep2)
+              takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+          if(i < leftoverSteps2)
+              takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
+        }
+      }
+    }  
 }
 
 void PenUpDown(int penlocation)

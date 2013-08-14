@@ -20,7 +20,7 @@ const int limitStop[3] = {19, 18, 14};  //Arduino Pins for Limit Switches
 
 /////////////////////////////////STEPPER VARIABLES//////////////////////////////
 int StepperDirection[3] = {0,0,0};   //Variables for X,Y,Z directions
-String currentZlocation = "down";
+String currentZlocation = "up";
 bool SteppersEnabled = true;
 bool currentDirectionZ = true;
 byte limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
@@ -415,7 +415,7 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
 
 void PenUpDown(int penlocation)
 {
-  long zsteps = 70000;
+  long zsteps = 45000;
   if(penlocation == 4 && currentZlocation == "up")  //Pen DOWN, currently up
   {
     if(currentDirectionZ)

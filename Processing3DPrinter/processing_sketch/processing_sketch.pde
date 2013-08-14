@@ -1,4 +1,6 @@
 import processing.serial.*;
+import controlP5.*;
+ControlP5 cp5;
 Serial myPort;
 int LayoutSize = 700;
 int buttonRadius = LayoutSize/14;
@@ -13,28 +15,52 @@ int inData[] = {0,0,0,1425,1200,0};  //limit switches X,Y,Z, cumulative steps X,
 int limitSwitches[] = {0,0,0};
 boolean connectedFlag = false;  //tells us whether we are connected to the Arduino... we should stop sending serial data if we are not
 boolean penDown = false;
+boolean displayImage = true;
 String jog_vs_moveto = "moveto"; //jog the pen up/down or moved fixed amount up/down
 long timeLastConnected;
 int [] previousCoordinates = {(23)*LayoutSize/44,13*LayoutSize/22};  //center position
 PGraphics lineLayer;
-int Xcoor;
-int Ycoor;
+int Xcoor, Ycoor;
+int cookie = 0;
+String CookieSizeString;
+PImage template;
+
+////////////////////////////PLATFORM GEOMETRY NOTES/////////////////////////////////////////
+//
+//    Horizontal:  
+//        Actual motion = 8.68"
+//        Steps:  2850
+//        Pixels (with LayoutSize = 700):  604.55
+//        Pixels per inch = 604.55/8.68 =  69.65 pix/"
+//    Vertical:
+//        Actual motion = 7.37"
+//        Steps = 2400
+//        Pixels (with LayoutSize = 700):  509.09
+//        Pixels per inch = 509.09/7.37 =  69.07 pix/"
+//
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+int pixelsPerInch = 69;
+float stepsPerPixel = 4.714;
 
 void setup()
 {
-  myPort = new Serial(this, "COM11", 38400); // connect to Arduino
-  myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
+  //myPort = new Serial(this, "COM11", 38400); // connect to Arduino
+  //myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
+  template = loadImage("template.jpg");
   size(LayoutSize, LayoutSize);
   initializeLineLayer();
   circleHighlight = color(204);
   circleColor = color(255);
   baseColor = color(150);
+  setupCp5Buttons();
+  
   }
 
 void draw()
 {
   background(baseColor);   // erases the display each loop
-  
+  DrawCookie();
   drawPlatform();
   checkCircles();
   checkJogPressed();
@@ -46,24 +72,98 @@ void draw()
   drawLines();
 }
 
+///////////////////////////////BUTTONS CONTROL MAKING INTERFACE PRETTY//////////////////////////////
+void setupCp5Buttons()
+{
+   //PFont pfont = createFont("Arial",20,true); // use true/false for smooth/no-smooth
+   //ControlFont font = new ControlFont(pfont,241);
+  
+   cp5 = new ControlP5(this);
+  
+   cp5.addButton("clear")  // CLEAR BUTTON WILL ERASE EXISTING LINES
+     .setValue(0)
+     .setPosition(12*LayoutSize/14,29*LayoutSize/30)  // bottom right corner
+     .setSize(50,25)
+     ; 
+     
+   cp5.addButton("LoadImage")  // CLEAR BUTTON WILL ERASE EXISTING LINES
+     .setValue(0)
+     .setPosition(6*LayoutSize/14,29*LayoutSize/30)  // bottom right corner
+     .setSize(70,25)
+     ;   
+     
+   cp5.addSlider("cookie")
+     .setPosition(8*LayoutSize/14,29*LayoutSize/30)
+     .setSize(170,25)
+     .setRange(0,10) // values can range from big to small as well
+     .setValue(0)
+     .setNumberOfTickMarks(20)
+     .setSliderMode(Slider.FLEXIBLE)
+     //.setColorTickMark(color(255,105,180))
+     .setHandleSize(50)
+     ;
+   
+   cp5.getController("LoadImage").setCaptionLabel("Load Image");
+   cp5.getController("LoadImage").getCaptionLabel().setSize(12);
+   cp5.getController("LoadImage").getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER); 
+   cp5.getController("clear").setCaptionLabel("Clear");
+   cp5.getController("clear").getCaptionLabel().setSize(12);
+   cp5.getController("clear").getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER);   
+   cp5.getController("cookie").getValueLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setPaddingY(5);
+   cp5.getController("cookie").getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER);
+   cp5.getController("cookie").setColorValueLabel(color(255));
+   cp5.getController("cookie").setColorCaptionLabel(color(255));
+   cp5.getController("cookie").setDecimalPrecision(2);
+   cp5.getController("cookie").setCaptionLabel("Size of Cookie");
+   cp5.getController("cookie").getCaptionLabel().setSize(12);
+   cp5.getController("cookie").getValueLabel().setSize(12);
+
+}
+
+float ConvertStepsToInches(int steps)
+{
+  int temp = int(steps/stepsPerPixel/pixelsPerInch*100);  // in = steps x (pixel/step) x (inch/pixel)
+  return float(temp)/100;
+}
+
+public void clear(int theValue) {
+  lineLayer.clear();
+}
+
+public void LoadImage(int theValue) {
+  displayImage = !displayImage;
+}
+
+void DrawCookie()
+{
+  CookieSizeString = str(cookie);
+  CookieSizeString += " inches"; 
+  cp5.getController("cookie").setValueLabel(CookieSizeString);
+  ellipseMode(CENTER);
+  stroke(0,255,0);
+  fill(255,255,0);
+  ellipse((23)*LayoutSize/44,13*LayoutSize/22, cookie*pixelsPerInch, cookie*pixelsPerInch);
+  
+  if(displayImage) image(template, 0, 0);
+}
+
 ////////////////////////DRAW PLATFORM////////////////////////////////////////////
 void drawPlatform()
 {
-  stroke(180);
-  textSize(LayoutSize/75);
+  stroke(180);  textSize(LayoutSize/75);
   textAlign(CENTER);
   fill(90);
   String coordinate = "";
   for(int i=0; i<20; i++)  //vertical lines spaced at 150 steps
   {
     line((2+i)*LayoutSize/22, 5*LayoutSize/22, (2+i)*LayoutSize/22, 21*LayoutSize/22);
-    coordinate = str(-1425+150*i);
+    coordinate = str(ConvertStepsToInches(-1425+150*i));
     text(coordinate, (2+i)*LayoutSize/22, 13*LayoutSize/22);
   }
   for(int i=0; i<17; i++)  //horizontal lines spaced at 150 steps
   {
     line(2*LayoutSize/22, (5+i)*LayoutSize/22, 21*LayoutSize/22, (5+i)*LayoutSize/22);
-    coordinate = str(1200-150*i);
+    coordinate = str(ConvertStepsToInches(1200-150*i));
     text(coordinate, LayoutSize/2, (5+i)*LayoutSize/22);
   }
   stroke(225);

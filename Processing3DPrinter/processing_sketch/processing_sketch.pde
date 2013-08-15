@@ -45,8 +45,8 @@ float stepsPerPixel = 4.714;
 
 void setup()
 {
-  //myPort = new Serial(this, "COM11", 38400); // connect to Arduino
-  //myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
+  myPort = new Serial(this, "COM11", 38400); // connect to Arduino
+  myPort.bufferUntil('\n');  //input buffer is filled until a newline is received, then serialEvent is triggered
   template = loadImage("template.jpg");
   size(LayoutSize, LayoutSize);
   initializeLineLayer();

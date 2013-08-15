@@ -8,8 +8,8 @@ int mode = 0;
 boolean errorFlag = false; // raised when checksum error occurs
 
 ///////////////////////////FROSTRUDER Relay Setup/////////////////////////////////
-const int reliefValve = 4;
-const int pressureValve = 10;
+const int reliefValve = 10;
+const int pressureValve = 4;
 bool penDownFlag = false;
 
 /////////////////////////////////STEPPER PINS//////////////////////////////
@@ -25,7 +25,7 @@ bool SteppersEnabled = true;
 bool currentDirectionZ = true;
 byte limitReading[3] = {0,0,0};  // Readings of X, Y, Z limit switches
 long cumulativeSteps[3] = {0,0,0};  //Summation of the X, Y, Z steps taken
-const int stepperSpeed = 1;  // this is the delay between steps in ms
+const int stepperSpeed = 3;  // this is the delay between steps in ms
 const int totalStepsXdirection = 2850;  //  1/8th stepping
 const int totalStepsYdirection = 2400;  // 1/8th stepping
 
@@ -402,9 +402,9 @@ void moveXY(int _Xsteps, int _Ysteps) //This function includes interweave so X a
           takeSingleStep(_Xsteps >= _Ysteps ? stepPin[1] : stepPin[0]); 
           for(int j=0; j<slope[0]; j++)
               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
-          if(i%iterationsPerLeftoverStep1 == 0 && (min(_Ysteps, _Xsteps) - i) > iterationsPerLeftoverStep1 )
+          if(i%iterationsPerLeftoverStep1 == 0 && (min(_Ysteps, _Xsteps) - i) >= iterationsPerLeftoverStep1 )
               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
-          if(i%iterationsPerLeftoverStep2 == 0 && (min(_Ysteps, _Xsteps) - i) > iterationsPerLeftoverStep2)
+          if(i%iterationsPerLeftoverStep2 == 0 && (min(_Ysteps, _Xsteps) - i) >= iterationsPerLeftoverStep2)
               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);
           if(i < leftoverSteps2)
               takeSingleStep(_Xsteps >= _Ysteps ? stepPin[0] : stepPin[1]);

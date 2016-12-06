@@ -1,6 +1,6 @@
 // STEPPER VARIABLE DECLARATIONS//
-const int stepPinX = 3;
-const int dirPinX = 2;
+const int stepPinX = 2;
+const int dirPinX = 3;
 const int enablePinXYZ = 4;
 boolean currentDirectionX = false;
 unsigned long dlyuS = 0;
@@ -19,7 +19,7 @@ float D5 = 587.33;
 float E5 = 659.25;
 float F5 = 698.46;
 float G5 = 783.99;
-float pitch_multiplier = 0.5;
+float pitch_multiplier = .7;
 
 // NOTE DURATION VARIABLE DECLARATIONS //
 float wholeNote = 1.0;
